@@ -33,7 +33,7 @@ img_transform = transform.Compose([transform.ToTensor(), transform.Normalize((0.
 #print(a)
 #print(img.shape)
 #print(aaaa)
-train_set , test_set = build('./dataset/train/', './dataset/train_cleaned/' ,'./dataset/test/','cnn')
+train_set , test_set,labels_test = build('./dataset/train/', './dataset/train_cleaned/' ,'./dataset/test/','cnn')
 
 train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
 test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
@@ -243,7 +243,7 @@ autoencoder = Autoncoder()
 autoencoder.to(device)
 loss = nn.MSELoss()
 optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
-#autoencoder.train()
+autoencoder.train()
 loss_values = train(autoencoder, train_loader,40, loss)
 '''
 fig = plt.figure()
@@ -265,16 +265,17 @@ def Show_Weight(out):
   plt.show()
 
 with torch.no_grad():
-  iterator = iter(test_loader)
-  batch,_ = iterator.next()
   i = 0
-  for image in batch:
-    image = image.unsqueeze(0)
-    new_image = autoencoder(image).cpu()
-    plt.axis('off')
-    plt.imshow(new_image[0][0], cmap='gray' , aspect='auto')
-    plt.savefig('./results_cnn/' + str(i) + '-init.png', bbox_inches='tight')
-    i += 1
+  for j,batch in enumerate(test_loader):
+    for image in batch:
+      print(i)
+      image = image.unsqueeze(0)
+      new_image = autoencoder(image).cpu()
+      label = labels_test[i].split('\\')[1]
+      plt.axis('off')
+      plt.imshow(new_image[0][0], cmap='gray' , aspect='auto')
+      plt.savefig('./results_cnn/test' + label, bbox_inches='tight')
+      i += 1
 
   print("imagen leida")
   #fig, ax = plt.subplots(figsize=(10, 10))
