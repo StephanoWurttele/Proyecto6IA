@@ -14,7 +14,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def get_imgs(directory):
     images = glob.glob(directory+'*')
-    return images 
+    return images
 
 
 def process_image(filename):
@@ -45,7 +45,7 @@ def process_image_CNN(filename):
     img2 = transform_norm(img)
     #print(img2.shape )
     ##img2 = torch.tensor(img2).float()
-    return (img2)
+    return img2
 
 
 
@@ -69,14 +69,15 @@ def build_train(train_set, clean_set):
 def build_test(test_set):
     response = []
     for i in range(len(test_set)):
-        response.append([test_set[i],[]])
+        response.append(test_set[i])
     return response
 
 def build(noisy, clean, test,type='mlp'):
     imgs_blurred = build_set(get_imgs(noisy),type)
     imgs = build_set(get_imgs(clean),type)
-    imgs_test = build_set(get_imgs(test),type)
-    return [build_train(imgs_blurred, imgs), build_test(imgs_test)]
+    labels_test = get_imgs(test)
+    imgs_test = build_set(labels_test,type)
+    return [build_train(imgs_blurred, imgs), build_test(imgs_test),labels_test]
 
 
 
