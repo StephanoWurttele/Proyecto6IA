@@ -4,6 +4,8 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transform
 import torch.nn.functional as F
+from sklearn.model_selection import KFold
+from operator import itemgetter 
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,8 +37,8 @@ img_transform = transform.Compose([transform.ToTensor(), transform.Normalize((0.
 #print(aaaa)
 train_set , test_set,labels_test = build('./dataset/train/', './dataset/train_cleaned/' ,'./dataset/test/','cnn')
 
-train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
-test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+#train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
+#test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
 
 class Encoder(nn.Module):
   def __init__(self):
@@ -210,6 +212,8 @@ class Autoncoder(nn.Module):
     out =  self.decoder(z,indexes)
     return out
 
+
+
 def train(model, train_loader, Epochs, loss_fn):
   train_loss_avg = []
   for epoch in range(Epochs):
@@ -236,22 +240,46 @@ def train(model, train_loader, Epochs, loss_fn):
     train_loss_avg[-1] /= num_batches
     print('Epoch [%d / %d] average reconstruction error: %f' % (epoch+1, Epochs, train_loss_avg[-1]))
   return train_loss_avg
-    
 
-learning_rate = 0.0001
-autoencoder = Autoncoder()
-autoencoder.to(device)
-loss = nn.MSELoss()
-optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
-autoencoder.train()
-loss_values = train(autoencoder, train_loader,40, loss)
-'''
-fig = plt.figure()
-plt.plot(loss_values)
-plt.xlabel('Epochs')
-plt.ylabel('Reconstruction error')
-plt.show()
-'''
+#si no se quiere utilizar el K-fold cross-validation, comente desde aqui
+
+
+model=0
+loss_temp = 10000000
+iter = 0
+final_train=0
+kf = KFold(n_splits=12,shuffle = True,random_state =2)
+for train_split, test_split in kf.split(train_set):
+  learning_rate = 0.0001
+  autoencoder = Autoncoder()
+  autoencoder.to(device)
+  loss = nn.MSELoss()
+  
+  train_split = itemgetter(*train_split)(train_set)
+  test_split = itemgetter(*test_split)(train_set)
+  
+  optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
+  train_loader = torch.utils.data.DataLoader(dataset=train_split, batch_size=batch_size, shuffle=True)
+  loss_values = train(autoencoder, train_loader,40, loss)
+  with torch.no_grad():
+    test_split = [i[0]for i in test_split]
+    test_split = torch.stack(test_split).to(device)
+    new_images = autoencoder(test_split)
+    loss_fn = loss(new_images,test_split)
+    if(loss_temp>loss_fn):
+      #model = autoencoder
+      loss_temp=loss_fn
+      final_train = train_split
+  iter+=1 
+  print("iter ",iter," error:",loss_values)
+print(loss_temp)
+
+train_loader = torch.utils.data.DataLoader(dataset=final_train, batch_size=batch_size, shuffle=True)
+#Hasta aqui
+
+
+
+
 def Show(out, title = ''):
   print(title)
   out = out.permute(1,0,2,3)
@@ -264,6 +292,28 @@ def Show_Weight(out):
   plt.imshow(transform.ToPILImage()(grilla), 'jet')
   plt.show()
 
+# y descomentar aqui 
+#train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True) 
+test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+learning_rate = 0.0001
+autoencoder = Autoncoder()
+autoencoder.to(device)
+loss = nn.MSELoss()
+optimizer = torch.optim.Adam(params=autoencoder.parameters(), lr=learning_rate, weight_decay=1e-5)
+loss_values = train(autoencoder, train_loader,40, loss)
+
+
+
+
+fig = plt.figure()
+plt.plot(loss_values)
+plt.xlabel('Epochs')
+plt.ylabel('Reconstruction error')
+plt.show()
+
+
+
+
 with torch.no_grad():
   i = 0
   for j,batch in enumerate(test_loader):
@@ -274,7 +324,7 @@ with torch.no_grad():
       label = labels_test[i].split('\\')[1]
       plt.axis('off')
       plt.imshow(new_image[0][0], cmap='gray' , aspect='auto')
-      plt.savefig('./results_cnn/test' + label, bbox_inches='tight')
+      plt.savefig('./results_cnn2/test' + label, bbox_inches='tight')
       i += 1
 
   print("imagen leida")
